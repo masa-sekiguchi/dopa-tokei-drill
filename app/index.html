@@ -40,6 +40,11 @@
           <button type="button" data-grade="4">4<small>ねんせい</small></button><button type="button" data-grade="5">5<small>ねんせい</small></button><button type="button" data-grade="6">6<small>ねんせい</small></button>
         </div>
         <button type="button" id="start-clock" class="sub-btn clock-btn">とけいの れんしゅう<small id="clock-sub"></small></button>
+        <div class="seg" role="radiogroup" aria-label="とけいの こたえかた">
+          <span class="seg-label">こたえかた</span>
+          <button type="button" role="radio" data-clockin="pad" aria-checked="true">すうじ</button>
+          <button type="button" role="radio" data-clockin="hands" aria-checked="false">はり</button>
+        </div>
         <div class="mode-row">
           <button type="button" id="open-tree" class="sub-btn">スキルツリー <b id="tree-badge"></b></button>
           <button type="button" id="open-trophy" class="sub-btn">トロフィー <b id="trophy-badge"></b></button>
@@ -134,6 +139,11 @@
         <button type="button" data-key="1">1</button><button type="button" data-key="2">2</button><button type="button" data-key="3">3</button>
         <button type="button" data-key="Backspace" class="del" aria-label="1けた消す">⌫</button><button type="button" data-key="0" class="zero">0</button>
       </div>
+      <div class="hands-panel" id="hands-panel" hidden>
+        <p class="hands-read" id="hands-read" aria-live="off">12:00</p>
+        <button type="button" class="big-btn hands-go" id="hands-go">できた！</button>
+        <p class="hands-tip">そとがわを なぞると ながい はり（ふん）、うちがわを なぞると みじかい はり（じ）が うごくよ</p>
+      </div>
     </section>
 
     <!-- Basic result -->
@@ -197,6 +207,14 @@
           <button type="button" role="radio" data-count="10" aria-checked="true">10<small>問</small></button>
           <button type="button" role="radio" data-count="14" aria-checked="false">14<small>問</small></button>
         </div>
+      </div>
+      <div class="set-row">
+        <span class="set-label">とけいの こたえかた</span>
+        <div class="seg" role="radiogroup" aria-label="とけいの こたえかた">
+          <button type="button" role="radio" data-clockin="pad" aria-checked="true">すうじ</button>
+          <button type="button" role="radio" data-clockin="hands" aria-checked="false">はり</button>
+        </div>
+        <p class="set-note">「はり」は とけいの はりを うごかして こたえます。「あと なん分」など 分で こたえる もんだいは すうじのままです</p>
       </div>
       <div class="set-row">
         <span class="set-label">音</span>

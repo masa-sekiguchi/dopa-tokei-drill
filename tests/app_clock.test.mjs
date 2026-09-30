@@ -1,7 +1,7 @@
 // Clock skills: every generated problem must be internally consistent.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeProblem, makeRng, clockSvg } from '../app/js/problems.js';
+import { makeProblem, makeRng, clockSvg, clockHands, handsDigits } from '../app/js/problems.js';
 import { SKILLS, SKILL } from '../app/js/skills.js';
 
 const CLOCKS = SKILLS.filter((s) => s.id.includes('-clock-'));
@@ -102,4 +102,95 @@ test('hour hand moves with the minutes', () => {
   assert.ok(Math.abs(ang(at(8, 40)) - 260) < 0.6);
   assert.ok(Math.abs(ang(at(12, 0)) - 0) < 0.6 || Math.abs(ang(at(12, 0)) - 360) < 0.6);
   assert.ok(Math.abs(ang(at(3, 0)) - 90) < 0.6);
+});
+
+// ---------------------------------------------------------------- hands version
+const HANDS = ['g1-clock-hour', 'g1-clock-half', 'g2-clock-5', 'g2-clock-1', 'g2-clock-shift-pic', 'g3-clock-shift', 'g3-clock-shift2'];
+
+test('hands version: same question as the number version, answer is the time on the hands', () => {
+  for (const id of HANDS) {
+    const a = makeRng(11); const b = makeRng(11);
+    for (let i = 0; i < 150; i++) {
+      const pad = makeProblem(id, a);
+      const p = makeProblem(id, b, null, { hands: true });
+      assert.equal(p.text, pad.text, `${id} same question`);
+      assert.equal(typed(p), typed(pad), `${id} same answer digits`);
+      assert.ok(p.hands, id);
+      assert.equal(`${p.hands.h}${id.includes('hour') ? '' : p.hands.m}`, typed(p), id);
+      assert.equal(p.hands.hd, String(p.hands.h).length);
+      const dials = p.cells.filter((c) => c.kind === 'dial');
+      assert.equal(dials.length, 1, id);
+      assert.equal(dials[0].hand, true);
+      const ids = p.cells.map((c) => c.id);
+      assert.equal(new Set(ids).size, ids.length, `${id} duplicate ids`);
+      for (const c of p.cells) assert.ok(c.c >= 0 && c.c + (c.cs || 1) <= p.cols && c.r >= 0 && c.r + (c.rs || 1) <= p.rows, `${id} cell inside grid`);
+      for (const st of p.steps) if (st.help) for (const hid of st.help.ids) assert.ok(ids.includes(hid), `${id} help id`);
+    }
+  }
+});
+
+test('hands version: reading problems show the answer digits faintly, not the clock face', () => {
+  const rng = makeRng(12);
+  const p = makeProblem('g2-clock-5', rng, null, { hands: true });
+  assert.deepEqual(p.cells.filter((c) => c.kind === 'input').map((c) => c.ghost), p.steps.map((s) => s.digit));
+  assert.match(p.cells.find((c) => c.kind === 'dial').svg, /clk-min/);
+  assert.equal(p.hands.sh, 12);
+  assert.equal(p.hands.sm, 0);
+});
+
+test('hands version: the picture problem starts on the given hour, the plain one at 12', () => {
+  const rng = makeRng(13);
+  for (let i = 0; i < 50; i++) {
+    const pic = makeProblem('g2-clock-shift-pic', rng, null, { hands: true });
+    assert.equal(pic.hands.sh, Number(/^(\d+)時/.exec(pic.text)[1]));
+    assert.match(pic.cells.find((c) => c.kind === 'dial').svg, /clk-arc/);
+    const plain = makeProblem('g3-clock-shift', rng, null, { hands: true });
+    assert.equal(plain.hands.sh, 12);
+  }
+});
+
+test('answers that are minutes keep the number pad (no hands)', () => {
+  const rng = makeRng(14);
+  for (const id of ['g2-clock-next', 'g3-clock-elapsed']) assert.equal(makeProblem(id, rng, null, { hands: true }).hands, undefined);
+});
+
+test('handsDigits: right hands give the answer, wrong hands stop at the first wrong digit', () => {
+  const rng = makeRng(15);
+  for (const id of HANDS) {
+    for (let i = 0; i < 100; i++) {
+      const p = makeProblem(id, rng, null, { hands: true });
+      const { h, m } = p.hands;
+      assert.equal(handsDigits(p, h, m).join(''), typed(p), id);
+      // wrong hour
+      const badH = h === 12 ? 1 : h + 1;
+      const w = handsDigits(p, badH, m);
+      assert.ok(w.length >= 1 && w.length <= p.steps.length);
+      assert.notEqual(w.join(''), typed(p).slice(0, w.length), `${id} last digit is wrong`);
+      assert.equal(w.slice(0, -1).join(''), typed(p).slice(0, w.length - 1));
+      // wrong minute
+      const badM = (m + 5) % 60;
+      const x = handsDigits(p, h, badM);
+      assert.notEqual(x.join(''), typed(p).slice(0, x.length), `${id} minute off`);
+    }
+  }
+});
+
+test('handsDigits: continues from the step already done, and never returns a correct-looking wrong answer', () => {
+  const rng = makeRng(16);
+  const p = makeProblem('g3-clock-shift2', rng, null, { hands: true });
+  const { h, m } = p.hands;
+  const from = String(h).length;
+  assert.equal(handsDigits(p, h, m, from).join(''), String(m));
+  // hour already accepted, minute hand wrong
+  const w = handsDigits(p, h, (m + 5) % 60, from);
+  assert.ok(w.length >= 1 && w.length <= String(m).length);
+  assert.notEqual(w.join(''), String(m).slice(0, w.length));
+});
+
+test('clockHands agrees with the drawn hands', () => {
+  const { hour, minute } = clockHands(8, 40);
+  const svg = clockSvg(8, 40);
+  const hx = /class="clk-hh" x1="100" y1="100" x2="([\d.]+)"/.exec(svg)[1];
+  assert.ok(Math.abs(Number(hx) - hour[0]) < 0.06);
+  assert.ok(Math.abs(Number(/class="clk-mh" x1="100" y1="100" x2="([\d.]+)"/.exec(svg)[1]) - minute[0]) < 0.06);
 });

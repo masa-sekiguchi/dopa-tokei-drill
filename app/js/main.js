@@ -2,7 +2,7 @@
 // escalating visuals and sound.
 import { startClock, onFrame, wait, tween, clamp, lerp, rand, pick, chance, centerOf, params,
   easeOutBack, easeOutCubic, easeInCubic, easeInOutCubic, easeOutQuint } from './core.js';
-import { makeRng, generate, makeProblem, signature, BASIC_SETS, EXTRA_TIERS } from './problems.js';
+import { makeRng, generate, makeProblem, signature, clockHands, handsDigits, BASIC_SETS, EXTRA_TIERS } from './problems.js';
 import { AudioEngine } from './audio.js';
 import { Dopakichi, COSTUMES, dopakichiSVG } from './dopakichi.js';
 import { FX } from './fx.js';
@@ -42,7 +42,7 @@ const S = {
   E: 0.06, visualE: 0.02, level: 0, ready: false, reach: false, shownWrong: null, wrongInQ: false,
   firstTry: 0, solved: 0, misses: 0, combo: 0, comboEnd: 0, comboLimit: 1, startT: 0, endT: 0, targetMs: 0, mode: 'basic',
   extra: { score: 0, solved: 0, misses: 0, end: 0, over: false }, digitsDone: 0, digitsTotal: 1,
-  dopa: { L: 0, shown: 0, unit: '' }, reduced: false, motion: 1, settingsOpen: false,
+  dopa: { L: 0, shown: 0, unit: '' }, reduced: false, motion: 1, settingsOpen: false, clockInput: 'pad', hands: null,
   run: 0, muted: false, kick: 0, flash: 0, shake: 0, cells: {}, lines: {}, idleAt: 0, busyUntil: 0,
 };
 window.__dopa = { S, audio };
@@ -229,7 +229,7 @@ function sessionProblem(skill) {
   const prog = progress();
   const r = prog.skills[skill];
   const recent = new Set([...(r ? r.recent : []), ...S.sessionSigs]);
-  let p = makeProblem(skill, S.rng, recent);
+  let p = makeProblem(skill, S.rng, recent, { hands: S.clockInput === 'hands' });
   S.sessionSigs.add(signature(p));
   return p;
 }
@@ -274,9 +274,9 @@ function renderSheet(p) {
     d.className = `cell ${c.kind}${c.small ? ' small' : ''}${c.cls ? ` ${c.cls}` : ''}`;
     d.style.gridRow = c.rs ? `${c.r + 1} / span ${c.rs}` : `${c.r + 1}`;
     d.style.gridColumn = c.cs ? `${c.c + 1} / span ${c.cs}` : `${c.c + 1}`;
-    if (c.kind === 'input') { d.textContent = ''; d.setAttribute('aria-label', '入力欄'); }
+    if (c.kind === 'input') { d.textContent = ''; d.setAttribute('aria-label', '入力欄'); if (c.ghost) d.dataset.ghost = c.ghost; }
     else if (c.kind === 'auto' || c.kind === 'carry') { d.textContent = c.text; d.classList.add('hidden'); }
-    else if (c.svg) { d.innerHTML = c.svg; d.setAttribute('aria-label', 'とけい'); }
+    else if (c.svg) { d.innerHTML = c.svg; d.setAttribute('aria-label', 'とけい'); if (c.hand) wireHands(d, p); }
     else d.textContent = c.text;
     if (c.text === '.' && c.kind === 'auto') d.classList.add('dot');
     sheet.appendChild(d);
@@ -291,7 +291,7 @@ function fitSheet(p) {
   const wrap = sheet.parentElement;
   const availW = Math.max(200, wrap.clientWidth - 16);
   const availH = parseFloat(getComputedStyle(wrap).minHeight) || 200;
-  const base = p.kind === 'div' ? 46 : 56;
+  const base = p.kind === 'div' ? 46 : p.hands ? 84 : 56; // the hands clock wants to be big to drag
   const cw = Math.min(base, availW / p.cols);
   const ch = Math.min(cw * (p.kind === 'div' ? 0.78 : 0.95), availH / p.rows);
   sheet.style.setProperty('--cw', `${cw.toFixed(1)}px`);
@@ -382,6 +382,7 @@ async function setupProblem() {
   $$('.pip').forEach((pp, i) => pp.classList.toggle('now', !extra && i === S.qi));
   $('#qtitle').textContent = p.title;
   $('#qno').textContent = extra ? `EX ${S.extra.solved + 1}` : `第${S.qi + 1}問`;
+  showInputPanel(!!p.hands); // before renderSheet: the grid is sized to the room the panel leaves
   renderSheet(p);
   $('#step-label').innerHTML = '&nbsp;';
   const last = !extra && S.qi === S.N - 1;
@@ -461,6 +462,77 @@ function press(key, btn = padButtons[key]) {
     S.shownWrong = key;
     carry(from, cell, key, () => { cell.classList.remove('pending'); onWrong(cell, st); });
   }
+}
+
+// ---------------------------------------------------------------- setting the hands (clock skills)
+// Some clock problems are answered by dragging the hands instead of the number
+// pad. The hands are turned into digits (handsDigits) and typed with press(),
+// so scoring, hints and Dopakichi work exactly as with the pad.
+function showInputPanel(hands) {
+  $('#pad').hidden = hands;
+  $('#hands-panel').hidden = !hands;
+  $('#screen-play').classList.toggle('hands', hands);
+}
+
+function drawHands(dial = S.cells.clock) {
+  if (!dial || !S.hands) return;
+  const { h, m } = S.hands;
+  const { hour, minute } = clockHands(h, m);
+  const hh = dial.querySelector('.clk-hh'); const mh = dial.querySelector('.clk-mh');
+  hh.setAttribute('x2', hour[0].toFixed(1)); hh.setAttribute('y2', hour[1].toFixed(1));
+  mh.setAttribute('x2', minute[0].toFixed(1)); mh.setAttribute('y2', minute[1].toFixed(1));
+  $('#hands-read').textContent = `${h}:${String(m).padStart(2, '0')}`;
+}
+
+// Touching inside the hour hand's reach moves the short hand (the hour), the
+// rest of the face moves the long hand (the minutes). The hour hand keeps
+// drifting with the minutes, as on a real clock.
+function wireHands(dial, p) {
+  const H = p.hands;
+  S.hands = { h: H.sh, m: H.sm };
+  dial.classList.add('hands');
+  let part = null;
+  const angleAt = (e) => {
+    const svg = dial.querySelector('svg');
+    const r = svg.getBoundingClientRect();
+    const u = Math.min(r.width, r.height) / 236; // svg units to px
+    const dx = e.clientX - (r.left + r.width / 2); const dy = e.clientY - (r.top + r.height / 2);
+    return { deg: ((Math.atan2(dx, -dy) * 180) / Math.PI + 360) % 360, dist: Math.hypot(dx, dy) / u };
+  };
+  const move = (e) => {
+    const { deg } = angleAt(e);
+    const { h, m } = S.hands;
+    let nh = h; let nm = m;
+    if (part === 'minute') nm = (Math.round(deg / 6 / H.step) * H.step) % 60;
+    else nh = ((Math.round((deg - m * 0.5) / 30) % 12) + 12) % 12 || 12;
+    if (nh === h && nm === m) return;
+    S.hands = { h: nh, m: nm };
+    drawHands(dial);
+    audio.play('blip', audio.now(), { m: part === 'minute' ? 76 : 69, v: 0.05 });
+  };
+  dial.addEventListener('pointerdown', (e) => {
+    if (!S.ready || S.confirm || S.problem !== p) return;
+    e.preventDefault();
+    audio.unlock();
+    part = angleAt(e).dist < 58 ? 'hour' : 'minute';
+    dial.classList.add(part === 'hour' ? 'grab-hour' : 'grab-minute');
+    dial.setPointerCapture(e.pointerId);
+    move(e);
+  });
+  dial.addEventListener('pointermove', (e) => { if (part) move(e); });
+  const end = () => { part = null; dial.classList.remove('grab-hour', 'grab-minute'); };
+  dial.addEventListener('pointerup', end);
+  dial.addEventListener('pointercancel', end);
+  drawHands(dial);
+}
+
+function submitHands() {
+  const p = S.problem;
+  if (S.screen !== 'play' || S.confirm || !S.ready || !p || !p.hands || !S.hands) return;
+  const btn = $('#hands-go');
+  handsDigits(p, S.hands.h, S.hands.m, S.step).forEach((d) => press(d, btn));
+  // A wrong answer stays on the card for a moment, then clears so the hands can be tried again.
+  if (S.shownWrong) setTimeout(() => { if (S.shownWrong && S.problem === p) erase(); }, 1100);
 }
 
 function carry(from, cell, digit, done) {
@@ -1590,6 +1662,11 @@ function setVolume(v, { persist = true } = {}) {
   sl.style.setProperty('--v', v);
   if (persist) store.updateSettings({ volume: v });
 }
+function setClockInput(mode, { persist = true } = {}) {
+  S.clockInput = mode === 'hands' ? 'hands' : 'pad';
+  $$('[data-clockin]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.clockin === S.clockInput)));
+  if (persist) store.updateSettings({ clockInput: S.clockInput });
+}
 function setCount(n, { persist = true } = {}) {
   $$('.pick button').forEach((x) => x.setAttribute('aria-checked', String(Number(x.dataset.count) === n)));
   if (persist) store.updateSettings({ count: n });
@@ -2505,6 +2582,9 @@ $('#go-review').addEventListener('click', startReview);
 $('#f-review').addEventListener('click', startReview);
 $('#start-review').addEventListener('click', startReview);
 $('#start-clock').addEventListener('click', startClockPractice);
+$$('[data-clockin]').forEach((b) => b.addEventListener('click', () => { audio.play('blip', audio.now(), { m: 76, v: 0.06 }); setClockInput(b.dataset.clockin); }));
+$('#hands-go').addEventListener('pointerdown', (e) => { e.preventDefault(); audio.unlock(); submitHands(); });
+$('#hands-go').addEventListener('click', (e) => { if (e.detail === 0) submitHands(); });
 $$('.grades button').forEach((b) => b.addEventListener('click', () => startGame('grade', Number(b.dataset.grade))));
 $('#open-tree').addEventListener('click', () => openTree());
 $('#tree').addEventListener('pointerdown', startHold);
@@ -2555,6 +2635,7 @@ addEventListener('keydown', (e) => {
   if (S.scene) return;
   if (!$('#day-log').hidden) { if (e.key === 'Escape') $('#day-log').hidden = true; return; }
   if (e.key === 'Escape' && S.screen !== 'title') { e.preventDefault(); askToTitle(); return; }
+  if (e.key === 'Enter' && S.screen === 'play' && S.problem && S.problem.hands) { audio.unlock(); submitHands(); e.preventDefault(); }
   if (/^[0-9]$/.test(e.key)) { audio.unlock(); press(e.key); e.preventDefault(); }
   else if (e.key === 'Backspace') { press('Backspace'); e.preventDefault(); }
 });
@@ -2598,6 +2679,7 @@ const saved = store.settings();
 const prefersReduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 setCount(params.has('count') ? Number(params.get('count')) : saved.count, { persist: false });
 setMotion(saved.motion ?? (prefersReduced ? 0 : 1), { persist: false });
+setClockInput(saved.clockInput, { persist: false });
 setMuted(!saved.sound, { persist: false });
 setVolume(saved.volume, { persist: false });
 applyLook(titleLook());

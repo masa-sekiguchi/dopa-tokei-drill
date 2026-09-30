@@ -355,6 +355,51 @@ function withClock(p, svg, K = 4, W = 4) {
   return p;
 }
 
+// Hands version of a clock problem: the player sets the hands by dragging
+// (see main.js) and the digits are typed for them from the hands (handsDigits).
+// spec.h/m is the answer time, sh/sm where the hands start, step the minute
+// snap. ghost shows the answer digits faintly in the input cells (used when
+// the time is given as the question and the hands are the answer).
+function withHands(p, svg, spec, { ghost = false } = {}) {
+  withClock(p, svg, 4, 4);
+  p.cells.find((c) => c.id === 'clock').hand = true;
+  p.hands = { ...spec, hd: String(spec.h).length };
+  for (const st of p.steps) {
+    st.label = 'はりを うごかして「できた！」';
+    if (ghost) p.cells.find((c) => c.id === st.cell).ghost = st.digit;
+  }
+  return p;
+}
+
+// Where the two hands end, for updating a drawn clock while it is dragged.
+export function clockHands(h, m) {
+  return { hour: polar(44, ((h % 12) * 30) + m * 0.5), minute: polar(78, m * 6) };
+}
+
+// Digits to type for hands set to h:m, from step `from` on. All correct if the
+// hands are right; otherwise correct digits up to the first wrong one, then
+// that wrong digit (so the usual "oshii" feedback and hints apply).
+export function handsDigits(p, h, m, from = 0) {
+  const H = p.hands;
+  const filler = (d) => String((Number(d) + 1) % 10);
+  const fields = [{ str: String(h), exp: String(H.h), start: 0 }];
+  if (p.steps.length > H.hd) fields.push({ str: String(m), exp: String(H.m), start: H.hd });
+  const out = [];
+  for (const f of fields) {
+    const n = f.exp.length;
+    let bad = -1;
+    if (f.str !== f.exp) { bad = 0; while (bad < n && f.str[bad] === f.exp[bad]) bad++; if (bad >= n) bad = n - 1; }
+    for (let j = 0; j < n; j++) {
+      if (f.start + j < from) continue;
+      if (j === bad) { const d = f.str[j]; out.push(d === undefined || d === f.exp[j] ? filler(f.exp[j]) : d); return out; }
+      out.push(f.exp[j]);
+    }
+  }
+  // Only the minutes are off but there is no minute cell ("○じ"): fail the last digit.
+  if (out.length && (h !== H.h || m !== H.m)) out[out.length - 1] = filler(out[out.length - 1]);
+  return out;
+}
+
 // ================================================================ generators
 const R = (rng) => (a, b) => a + Math.floor(rng() * (b - a + 1));
 const pickOf = (rng, arr) => arr[Math.floor(rng() * arr.length)];
@@ -592,7 +637,7 @@ const GEN = {
   },
 
   // ---- clocks (reading a time, "n minutes before/after", elapsed time)
-  clockRead(rng, { kind }) {
+  clockRead(rng, { kind, hands }) {
     const r = R(rng);
     const h = r(1, 12);
     let m = 0;
@@ -607,7 +652,14 @@ const GEN = {
     else if (kind === 'half') help = `ながい はりが 6 → 30分。みじかい はりは ${between} → 小さい ほうの ${h}時`;
     else if (kind === 'five') help = `ながい はりが ${m / 5} → ${m / 5} × 5 ＝ ${m}分。みじかい はりは ${between} → ${h}時`;
     else help = `ながい はり: ${Math.floor(m / 5) * 5}分 から ${m % 5}めもり すすんだ → ${m}分。みじかい はりは ${between} → ${h}時`;
-    const p = withClock(buildH(toks, { title: 'とけい', text: `とけい ${hm(h, m)}`, answer: kind === 'hour' ? `${h}時` : `${h}時${m}分`, help }), clockSvg(h, m, { minuteNums: kind === 'five' }), 4, 4);
+    const built = buildH(toks, { title: 'とけい', text: `とけい ${hm(h, m)}`, answer: kind === 'hour' ? `${h}時` : `${h}時${m}分`, help });
+    if (hands) {
+      const spec = { h, m, sh: 12, sm: 0, step: kind === 'one' ? 1 : 5 };
+      const q = withHands(built, clockSvg(12, 0, { minuteNums: kind === 'five' }), spec, { ghost: true });
+      q.steps.forEach((st) => { if (st.help) st.help.ids.push('clock'); });
+      return q;
+    }
+    const p = withClock(built, clockSvg(h, m, { minuteNums: kind === 'five' }), 4, 4);
     p.steps.forEach((st) => { if (st.help) st.help.ids.push('clock'); });
     return p;
   },
@@ -621,7 +673,7 @@ const GEN = {
     return p;
   },
   // "9時の20分前は？" With aid the clock shows 9時 and the minutes to go back over.
-  clockShift(rng, { aid, onHour }) {
+  clockShift(rng, { aid, onHour, hands }) {
     const r = R(rng);
     const fives = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
     for (let g = 0; g < 200; g++) {
@@ -650,8 +702,14 @@ const GEN = {
       const text = `${hm(h, mb)}の ${n}分${word}`;
       const meta = { title: 'まえ・あと', text, answer: `${rh}時${rm}分`, help };
       const built = buildH(toks, meta);
+      const arc = aid ? (before ? { from: (60 - n) * 6, to: 360 } : { from: 0, to: n * 6 }) : null;
+      if (hands) {
+        // The hands start on the given hour with the picture, otherwise at 12.
+        const q = withHands(built, clockSvg(aid ? h : 12, 0, { arc }), { h: rh, m: rm, sh: aid ? h : 12, sm: 0, step: 5 });
+        if (aid) q.steps.forEach((st) => { if (st.help) st.help.ids.push('clock'); });
+        return q;
+      }
       if (!aid) return built;
-      const arc = before ? { from: (60 - n) * 6, to: 360 } : { from: 0, to: n * 6 };
       const p = withClock(built, clockSvg(h, 0, { arc }), 3, 3);
       p.steps.forEach((st) => { if (st.help) st.help.ids.push('clock'); });
       return p;
@@ -738,13 +796,14 @@ const GEN = {
 export const signature = (p) => `${p.title}|${p.text}`;
 
 // Make one problem for a skill, avoiding signatures in `recent` when possible.
-export function makeProblem(skillId, rng, recent = null) {
+// opts.hands: clock problems whose answer is a time are built for setting the hands.
+export function makeProblem(skillId, rng, recent = null, { hands = false } = {}) {
   const sk = SKILL[skillId];
   if (!sk) throw new Error(`unknown skill ${skillId}`);
   const [name, params] = sk.gen;
   let p;
   for (let tries = 0; tries < 40; tries++) {
-    p = GEN[name](rng, params);
+    p = GEN[name](rng, hands ? { ...params, hands } : params);
     if (!recent || !recent.has(signature(p))) break;
   }
   p.skill = skillId;
