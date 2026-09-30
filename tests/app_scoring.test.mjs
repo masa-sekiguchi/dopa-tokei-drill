@@ -1,4 +1,5 @@
 // Scoring and dopa curves for the public app (id014).
+import './_full.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { extraPoints, extraTotal, basicDopaL, extraDopaL, extraProblemGain, fmtDopa, unitOf, unitLabel, addDopa, comboMult, comboMaxed, comboWindowMs, comboMilestone, DOPA_MAX_L } from '../app/js/scoring.js';

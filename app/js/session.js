@@ -241,7 +241,7 @@ export function gradePlan(grade, N, rng) {
   const hard = list.slice(Math.floor(list.length * 0.55));
   return {
     mode: 'grade', grade, basic,
-    extra: (k) => (k < 6 || grade === 6 ? hard[k % hard.length] : next[(k - 6) % Math.max(1, Math.min(next.length, 4))]),
+    extra: (k) => (k < 6 || grade === 6 || !next.length ? hard[k % hard.length] : next[(k - 6) % Math.max(1, Math.min(next.length, 4))]),
   };
 }
 

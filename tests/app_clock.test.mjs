@@ -11,7 +11,7 @@ const minutesOf = (h, m) => (h % 12) * 60 + m;
 
 test('clock skills exist, form a chain from a root, and are in the tree lane', () => {
   assert.equal(CLOCKS.length, 9);
-  for (const s of CLOCKS) assert.equal(s.lane, 3);
+  assert.equal(new Set(CLOCKS.map((s) => s.lane)).size, 1);
   assert.deepEqual(SKILL['g1-clock-hour'].req, []);
 });
 

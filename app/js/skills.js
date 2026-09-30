@@ -2,12 +2,12 @@
 // Each skill: id, name (shown on screen), grade, lane (tree column),
 // req (all must be mastered to unlock), gen (generator + params, problems.js).
 
-export const LANES = ['たし・ひき', 'かけ・わり', '小数・分数', 'そのほか'];
+export const LANES = globalThis.DOPA_FULL === true ? ['たし・ひき', 'かけ・わり', '小数・分数', 'そのほか'] : ['とけい'];
 
 // Mastery / unlock rule (provisional): 5 first-try clears in the last 6 attempts.
 export const MASTERY = { window: 6, need: 5 };
 
-export const SKILLS = [
+const ALL_SKILLS = [
   // ---------------------------------------------------------------- grade 1
   { id: 'g1-compose10', name: '10のまとまり', grade: 1, lane: 0, req: [], gen: ['compose', { total: 10 }] },
   { id: 'g1-add-nc', name: '1けたのたしざん', grade: 1, lane: 0, req: [], gen: ['hadd', { a: [1, 9], b: [1, 9], carry: 'none' }] },
@@ -89,6 +89,13 @@ export const SKILLS = [
   { id: 'g6-ratio', name: '等しい比', grade: 6, lane: 3, req: ['g5-lcm'], gen: ['ratio', {}] },
   { id: 'g6-letter', name: 'xをもとめる', grade: 6, lane: 3, req: ['g4-order'], gen: ['letter', {}] },
 ];
+
+// This edition is clock-only: the app offers just the clock skills (id has "-clock-").
+// Set CLOCK_ONLY to false to bring back the whole calculation tree.
+// (Tests of the calculation skills set globalThis.DOPA_FULL = true first: tests/_full.mjs.)
+export const CLOCK_ONLY = globalThis.DOPA_FULL !== true;
+export const SKILLS = CLOCK_ONLY ? ALL_SKILLS.filter((s) => s.id.includes('-clock-')).map((s) => ({ ...s, lane: 0 })) : ALL_SKILLS; // one tree column
+export { ALL_SKILLS };
 
 export const SKILL = Object.fromEntries(SKILLS.map((s) => [s.id, s]));
 

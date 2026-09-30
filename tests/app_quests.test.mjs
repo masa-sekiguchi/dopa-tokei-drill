@@ -1,4 +1,5 @@
 // Daily quests (id035).
+import './_full.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { QUEST, QUEST_MINUTES, dailyQuests, questMinutes, questEvent, ensureDay, allDone, claimReward, questDef } from '../app/js/quests.js';

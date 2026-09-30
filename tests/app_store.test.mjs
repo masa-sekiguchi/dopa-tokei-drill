@@ -1,4 +1,5 @@
 // Local persistence for the public app (id016, id017).
+import './_full.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as store from '../app/js/store.js';

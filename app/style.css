@@ -780,3 +780,4 @@ body.reduced #guide-help-ring, body.reduced .guide-help-fallback::after { animat
   .hands-go { height: 56px; font-size: 24px; }
   #screen-play.hands .sheet-wrap.tall { min-height: clamp(170px, calc(100dvh - 424px - env(safe-area-inset-bottom)), 420px); }
 }
+.grades button[hidden] { display: none; }

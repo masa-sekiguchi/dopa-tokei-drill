@@ -1,4 +1,5 @@
 // Session planning and mastery (id021, id022, id023).
+import './_full.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeRng } from '../app/js/problems.js';

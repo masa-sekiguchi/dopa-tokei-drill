@@ -5,6 +5,10 @@
 // random, conditions are always shown (except a few secrets), and a trophy,
 // once earned, is kept.
 import { SKILLS, LANES } from './skills.js';
+
+// Only grades and lanes that have skills (the clock-only edition has grades 1-3, lane 3).
+const GRADES = [1, 2, 3, 4, 5, 6].filter((g) => SKILLS.some((x) => x.grade === g));
+const all = (list, pred) => list.length > 0 && list.every(pred);
 import { isUnlocked, isMastered, starsOf } from './session.js';
 
 export const CATS = ['つづける', 'たくさん', 'スキル', 'せいちょう', 'エクストラ', 'コンボ', 'せいかく', 'ドパ', 'ふくしゅう', 'がくねん', 'コレクション', 'ひみつ'];
@@ -33,8 +37,8 @@ const SERIES_DEFS = [
   { key: 'minutes', cat: 'たくさん', title: 'あそんだ時間', metric: 'minutes', steps: [10, 30, 60, 120, 300, 600, 1200, 3000], name: (v) => (v >= 60 ? `あわせて ${v / 60}時間` : `あわせて ${v}ふん`), desc: (v) => `あそんだ時間が ぜんぶで ${v >= 60 ? `${v / 60}時間` : `${v}ふん`}` },
   { key: 'unlocked', cat: 'スキル', title: 'スキル かいほう', metric: 'unlocked', steps: [3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 58], name: (v) => `かいほう ${v}こ`, desc: (v) => `スキルを ${v}こ かいほうする` },
   { key: 'mastered', cat: 'スキル', title: 'スキル マスター', metric: 'mastered', steps: [1, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 58], name: (v) => `マスター ${v}こ`, desc: (v) => `スキルを ${v}こ マスターする` },
-  { key: 'gradeDone', cat: 'スキル', title: '学年 ぜんぶ マスター', items: [1, 2, 3, 4, 5, 6].map((g) => ({ id: `gradeDone-${g}`, metric: `gradeDone${g}`, need: 1, name: `${g}年生 ぜんぶ マスター`, desc: `${g}年生の スキルを ぜんぶ マスターする` })) },
-  { key: 'laneDone', cat: 'スキル', title: 'けいとう ぜんぶ マスター', items: LANES.map((l, i) => ({ id: `laneDone-${i}`, metric: `laneDone${i}`, need: 1, name: `${l} マスター`, desc: `「${l}」の スキルを ぜんぶ マスターする` })) },
+  { key: 'gradeDone', cat: 'スキル', title: '学年 ぜんぶ マスター', items: GRADES.map((g) => ({ id: `gradeDone-${g}`, metric: `gradeDone${g}`, need: 1, name: `${g}年生 ぜんぶ マスター`, desc: `${g}年生の スキルを ぜんぶ マスターする` })) },
+  { key: 'laneDone', cat: 'スキル', title: 'けいとう ぜんぶ マスター', items: LANES.map((l, i) => [l, i]).filter(([, i]) => SKILLS.some((x) => x.lane === i)).map(([l, i]) => ({ id: `laneDone-${i}`, metric: `laneDone${i}`, need: 1, name: `${l} マスター`, desc: `「${l}」の スキルを ぜんぶ マスターする` })) },
   { key: 'extras', cat: 'エクストラ', title: 'エクストラに いく', metric: 'extras', steps: [1, 3, 5, 10, 20, 30, 50, 100, 200, 300], name: (v) => `エクストラ ${v}回`, desc: (v) => `エクストラに ${v}回 すすむ` },
   { key: 'extraBest', cat: 'エクストラ', title: 'エクストラ 1回の さいこう', metric: 'extraBest', steps: [3, 5, 7, 10, 12, 15, 18, 20, 23, 25, 30], name: (v) => `1回で ${v}もん`, desc: (v) => `1回の エクストラで ${v}もん とく` },
   { key: 'extraSolved', cat: 'エクストラ', title: 'エクストラで といた', metric: 'extraSolved', steps: [10, 30, 50, 100, 200, 300, 500, 1000, 2000, 3000], name: (v) => `エクストラ ${fmt(v)}もん`, desc: (v) => `エクストラで ぜんぶで ${fmt(v)}もん とく` },
@@ -43,7 +47,7 @@ const SERIES_DEFS = [
   { key: 'firstTry', cat: 'せいかく', title: '初回正解', metric: 'firstTry', steps: [10, 50, 100, 300, 500, 1000, 3000, 5000, 10000, 30000], name: (v) => `初回正解 ${fmt(v)}もん`, desc: (v) => `いっかいで 正解した もんだいが ${fmt(v)}もん` },
   { key: 'dopa', cat: 'ドパ', title: 'ドパ', metric: 'bestDopaL', steps: [2, 3, 4, 5, 6, 7, 8, 9], name: (v) => `${DOPA_LABEL[v]}ドパ`, desc: (v) => `1回の プレイで ドパ ${DOPA_LABEL[v]}を こえる` },
   { key: 'review', cat: 'ふくしゅう', title: 'ふくしゅう', metric: 'reviewSolved', steps: [1, 5, 10, 30, 50, 100, 200, 300], name: (v) => `ふくしゅう ${v}もん`, desc: (v) => `まちがえた もんだいを ${v}もん やりなおす` },
-  ...[1, 2, 3, 4, 5, 6].map((g) => ({ key: `grade${g}`, cat: 'がくねん', title: `${g}ねんせいで あそぶ`, metric: `gradePlays${g}`, steps: [1, 10, 30], name: (v) => `${g}ねんせい ${v}回`, desc: (v) => `「${g}ねんせい」で ${v}回 あそぶ` })),
+  ...GRADES.map((g) => ({ key: `grade${g}`, cat: 'がくねん', title: `${g}ねんせいで あそぶ`, metric: `gradePlays${g}`, steps: [1, 10, 30], name: (v) => `${g}ねんせい ${v}回`, desc: (v) => `「${g}ねんせい」で ${v}回 あそぶ` })),
   { key: 'secret', cat: 'ひみつ', title: 'ひみつ', items: [
     { id: 'secret-perfect14', metric: 'flag:perfect14', need: 1, name: '14もん パーフェクト', desc: '14もんを おしい 0回で とく', secret: true },
     { id: 'secret-extraClean', metric: 'flag:extraClean', need: 1, name: 'エクストラ ノーミス', desc: 'エクストラで 5もん いじょう、おしい 0回', secret: true },
@@ -77,7 +81,7 @@ SERIES_DEFS.forEach(addSeries);
   { key: 'hammer', cat: 'つづける', title: 'ノーカンハンマー', metric: 'hammerUsed', steps: [1, 3, 10], name: (v) => (v === 1 ? 'はじめての ノーカン' : `ノーカン ${v}回`), desc: (v) => `ノーカンハンマーを ${v}回 つかう` },
   { key: 'starsTotal', cat: 'スキル', title: 'ほしの かず', metric: 'starsTotal', steps: [5, 10, 25, 50, 75, 100, 150, 200, 250, 290], name: (v) => `ほし ${v}こ`, desc: (v) => `スキルの ほしを ぜんぶで ${v}こ あつめる` },
   { key: 'star5', cat: 'スキル', title: '☆5の スキル', metric: 'star5', steps: [1, 3, 5, 10, 20, 30, 58], name: (v) => `☆5 ${v}こ`, desc: (v) => `☆5の スキルを ${v}こ つくる` },
-  { key: 'gradeStar3', cat: 'スキル', title: '学年 ぜんぶ ☆3', items: [1, 2, 3, 4, 5, 6].map((g) => ({ id: `gradeStar3-${g}`, metric: `gradeStar3${g}`, need: 1, name: `${g}年生 ぜんぶ ☆3`, desc: `${g}年生の スキルを ぜんぶ ☆3 いじょうに する` })) },
+  { key: 'gradeStar3', cat: 'スキル', title: '学年 ぜんぶ ☆3', items: GRADES.map((g) => ({ id: `gradeStar3-${g}`, metric: `gradeStar3${g}`, need: 1, name: `${g}年生 ぜんぶ ☆3`, desc: `${g}年生の スキルを ぜんぶ ☆3 いじょうに する` })) },
   { key: 'polished', cat: 'せいちょう', title: 'さびを みがく', metric: 'polished', steps: [1, 3, 5, 10, 30, 50], name: (v) => `ピカピカ ${v}回`, desc: (v) => `さびた スキルを ${v}回 みがく` },
   { key: 'capsules', cat: 'せいちょう', title: 'タイムカプセル', metric: 'capsules', steps: [1, 3, 5, 10, 30], name: (v) => `カプセル ${v}こ`, desc: (v) => `タイムカプセルを ${v}こ あける` },
   { key: 'capsuleFaster', cat: 'せいちょう', title: 'あの日より はやい', metric: 'capsuleFaster', steps: [1, 5, 10], name: (v) => `あの日より はやく ${v}回`, desc: (v) => `タイムカプセルで あの日より はやく とく（${v}回）` },
@@ -103,11 +107,11 @@ export function trophyMetrics(snap) {
   m.star5 = Object.values(stars).filter((n) => n >= 5).length;
   m.polished = s.polished || 0; m.capsules = s.capsules || 0; m.capsuleFaster = s.capsuleFaster || 0; m.grew = s.grew || 0;
   for (let g = 1; g <= 6; g++) {
-    m[`gradeStar3${g}`] = SKILLS.filter((x) => x.grade === g).every((x) => stars[x.id] >= 3) ? 1 : 0;
-    m[`gradeDone${g}`] = SKILLS.filter((x) => x.grade === g).every((x) => isMastered(prog, x.id)) ? 1 : 0;
+    m[`gradeStar3${g}`] = all(SKILLS.filter((x) => x.grade === g), (x) => stars[x.id] >= 3) ? 1 : 0;
+    m[`gradeDone${g}`] = all(SKILLS.filter((x) => x.grade === g), (x) => isMastered(prog, x.id)) ? 1 : 0;
     m[`gradePlays${g}`] = (s.grades || {})[g] || 0;
   }
-  LANES.forEach((_, i) => { m[`laneDone${i}`] = SKILLS.filter((x) => x.lane === i).every((x) => isMastered(prog, x.id)) ? 1 : 0; });
+  LANES.forEach((_, i) => { m[`laneDone${i}`] = all(SKILLS.filter((x) => x.lane === i), (x) => isMastered(prog, x.id)) ? 1 : 0; });
   for (const [k, v] of Object.entries(s.flags || {})) if (v) m[`flag:${k}`] = 1;
   const modes = s.modes || {};
   m.allModes = ['level', 'grade', 'practice', 'review'].every((k) => modes[k]) ? 1 : 0;

@@ -1,4 +1,5 @@
 // Unlockable show (id041-id044).
+import './_full.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CATS, ITEMS, ITEM, pickLook, unlockedIn, isUnlocked, defaultEquip, variant } from '../app/js/unlocks.js';

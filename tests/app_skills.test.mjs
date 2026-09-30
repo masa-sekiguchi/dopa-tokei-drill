@@ -1,4 +1,5 @@
 // Skill tree data integrity (id019).
+import './_full.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SKILLS, SKILL, DEPTH, LANES } from '../app/js/skills.js';

@@ -1,4 +1,5 @@
 // Placement regressions use the reviewer's actual pc-4 geometry.
+import './_full.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { rankGuideSpots } from '../app/js/guide.js';

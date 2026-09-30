@@ -1,4 +1,5 @@
 // Validates generated column-arithmetic problems for the public app.
+import './_full.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeRng, generate, BASIC_SETS, EXTRA_TIERS } from '../app/js/problems.js';

@@ -204,7 +204,7 @@ const MODE_LABEL = { level: 'じぶんレベル', grade: (g) => `${g}ねんせ�
 function makePlan(kind, arg) {
   const prog = progress();
   if (kind === 'grade') return gradePlan(arg, S.N, S.rng);
-  if (kind === 'review') { const items = prog.review.slice(-Math.min(S.N, 10)); return reviewPlan(items); }
+  if (kind === 'review') { const items = prog.review.filter((it) => SKILL[it.skill]).slice(-Math.min(S.N, 10)); return reviewPlan(items); }
   if (kind === 'practice') return { mode: 'practice', skill: arg, basic: Array.from({ length: S.N }, () => arg), extra: () => { const kids = SKILLS.filter((x) => x.req.includes(arg) && isUnlocked(prog, x.id)); return kids.length ? kids[Math.floor(S.rng() * kids.length)].id : arg; } };
   if (kind === 'demo') {
     // Random skills from every grade, ordered easy -> hard so the show escalates.
@@ -1498,7 +1498,7 @@ function refreshTitle() {
   const prog = progress();
   const nc = nextTokeiSkill(prog);
   $('#clock-sub').textContent = nc ? `つぎは「${nc.name}」` : 'ぜんぶ マスター！';
-  const n = prog.review.length;
+  const n = prog.review.filter((it) => SKILL[it.skill]).length; // records of removed calculation skills are ignored
   $('#start-review').hidden = !n;
   $('#review-count').textContent = n;
   $('#level-sub').textContent = prog.placed ? `つぎは「${SKILL[frontier(prog)[0] || ORDER[ORDER.length - 1]].name}」` : 'はじめは じつりょくチェック';
@@ -2585,6 +2585,7 @@ $('#start-clock').addEventListener('click', startClockPractice);
 $$('[data-clockin]').forEach((b) => b.addEventListener('click', () => { audio.play('blip', audio.now(), { m: 76, v: 0.06 }); setClockInput(b.dataset.clockin); }));
 $('#hands-go').addEventListener('pointerdown', (e) => { e.preventDefault(); audio.unlock(); submitHands(); });
 $('#hands-go').addEventListener('click', (e) => { if (e.detail === 0) submitHands(); });
+$$('.grades button').forEach((b) => { b.hidden = !SKILLS.some((x) => x.grade === Number(b.dataset.grade)); });
 $$('.grades button').forEach((b) => b.addEventListener('click', () => startGame('grade', Number(b.dataset.grade))));
 $('#open-tree').addEventListener('click', () => openTree());
 $('#tree').addEventListener('pointerdown', startHold);

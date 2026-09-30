@@ -1,4 +1,5 @@
 // Trophies (id036).
+import './_full.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { TROPHIES, TROPHY, SERIES, CATS, trophyMetrics, evaluate, seriesView, earnedCount } from '../app/js/trophies.js';

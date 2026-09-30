@@ -1,4 +1,5 @@
 // Every skill generator yields consistent, well-formed problems (id020).
+import './_full.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeRng, makeProblem, signature } from '../app/js/problems.js';

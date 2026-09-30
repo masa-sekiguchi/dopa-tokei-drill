@@ -1,4 +1,5 @@
 // Lifetime statistics and growth comparisons (id033-).
+import './_full.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { emptyStats, statsFromHistory, noteSolve, notePlay, noteExtraStart, noteDopa } from '../app/js/growth.js';
