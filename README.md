@@ -2,6 +2,19 @@
 
 > これは [grmchn/dopa-drill](https://github.com/grmchn/dopa-drill)（MIT License）を改変した非公式の派生版です。キャラクター「ドパキチ」と「ドパドリル」の名称・ロゴは原作者のもので、営利目的では使えません（下記ライセンス参照）。
 
+## 公開先と更新の手順
+
+- 公開URL: https://dopa-tokei.tokei-drill.workers.dev/ （Cloudflare Workers の静的配信。`app/` をそのまま配信）
+- GitHub: https://github.com/masa-sekiguchi/dopa-tokei-drill
+- 更新（手動デプロイ。GitHubにpushしても自動では反映されない）:
+
+```bash
+node --test tests/*.test.mjs
+npx wrangler deploy
+```
+
+---
+
 ## この版で追加したもの：とけいのスキル（9つ）
 
 アナログ時計の絵を出して、「◯時◯分」を1桁ずつ入力して答えます。「9時の20分前は？」のような、時計の読み方を段階的に練習できます。
